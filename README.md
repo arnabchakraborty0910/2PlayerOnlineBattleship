@@ -10,7 +10,7 @@ Playing battle ship can be difficult, especially between people who are far away
 
 Have 3 terminals, 2 terminals will be the 2 players playing against each other. The 3rd terminal will be used to start the sever that will comunicate between the 2 players. All the logic for winning, losing, placement and players making correct moves will be managed by the server
 
-![System diagram](docs/FinalProjectCS193 (2).drawio)
+![System diagram](docs/diagram.png)
 
 ## Tech Stack
 
