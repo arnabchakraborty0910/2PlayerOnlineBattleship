@@ -1,4 +1,4 @@
-package game;
+package game.GameComponents;
 /*
  * defines the size of the board and the size of the ships, and number of players
  */

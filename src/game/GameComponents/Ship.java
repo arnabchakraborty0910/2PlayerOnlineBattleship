@@ -1,4 +1,4 @@
-package game;
+package game.GameComponents;
 
 /*
  * This is the ship

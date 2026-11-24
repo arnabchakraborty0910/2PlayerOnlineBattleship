@@ -1,4 +1,4 @@
-package game;
+package game.GameComponents;
 /*
  * this exception class is used incase anything goes wrong in the logic of the game
  */

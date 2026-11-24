@@ -1,10 +1,14 @@
-package game;
+package game.GameComponents;
+
+import game.StateMachine.StateMachine;
+
 /*
  * this holds the logic for the game
  */
 public class Game {
     public void startGame() {
-        //set up board
+        //Mile stone 1 code
+        /*
         Board b = new Board();
         Cord s = new Cord(0,0), e = new Cord(0,4);
         Ship Carrier = new Ship(GameRules.CARRIER_SIZE, Ship.orientation.horizontal, "Carrier");
@@ -53,5 +57,17 @@ public class Game {
                 }
             }
         }
+
+         */
+
+        //set to board state machine
+        StateMachine GameStateMacheine = new StateMachine();
+        GameStateMacheine.changeState(GameStateMacheine.boardSetupState);
+
+        while(!GameStateMacheine.player1.setUp || !GameStateMacheine.player2.setUp) {
+            GameStateMacheine.update();
+        }
+        
+        IO.println("Run");
     }
 }
