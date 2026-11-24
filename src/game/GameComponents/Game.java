@@ -64,10 +64,9 @@ public class Game {
         StateMachine GameStateMacheine = new StateMachine();
         GameStateMacheine.changeState(GameStateMacheine.boardSetupState);
 
-        while(!GameStateMacheine.player1.setUp || !GameStateMacheine.player2.setUp) {
+        while(GameStateMacheine.running) {
             GameStateMacheine.update();
         }
         
-        IO.println("Run");
     }
 }

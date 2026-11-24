@@ -27,8 +27,10 @@ public class BoardSetupState implements State {
             setPlayerShips(stateMachine.player1);
         else if (!stateMachine.player2.setUp)
             setPlayerShips(stateMachine.player2);
-        else
+        else {
             IO.print("done move to player 1 turn");
+            stateMachine.changeState(stateMachine.player1TurnState);
+        }
 
 
     }
@@ -151,6 +153,7 @@ public class BoardSetupState implements State {
         } else {
             IO.println("Complete");
             p.setUp = true;
+
         }
     }
 

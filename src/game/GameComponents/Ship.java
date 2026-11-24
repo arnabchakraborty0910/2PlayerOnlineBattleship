@@ -51,14 +51,34 @@ public class Ship {
     }
 
     //sets one of the cordinates of the ship to hit
-    public boolean hit(int row, int col) {
+    public boolean hit(Cord c) {
         for(int i = 0; i < cords.length; i++) {
-            if(cords[i].row == row && cords[i].col == col) {
+            if(cords[i] != null && cords[i].row == c.row && cords[i].col == c.col) {
                 cords[i].hit = true;
+                checkIfSunk();
                 return true;
             }
         }
         return false;
+    }
+
+    public boolean isHit(Cord c) {
+        for(int i = 0; i < cords.length; i++) {
+            if(cords[i] != null && cords[i].row == c.row && cords[i].col == c.col) {
+                if(cords[i].hit)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    public void checkIfSunk() {
+        for(int i = 0; i < cords.length; i++) {
+            if(!cords[i].hit)
+                return;
+        }
+        this.sunk =true;
+
     }
 
 

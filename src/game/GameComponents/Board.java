@@ -71,8 +71,8 @@ public class Board {
 
 
 
-    public Ship checkSpot(int row, int col) {
-        return board[row][col];
+    public Ship checkSpot(Cord c) {
+        return board[c.row][c.col];
     }
 
 
