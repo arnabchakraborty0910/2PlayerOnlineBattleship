@@ -10,4 +10,5 @@ public class GameRules {
     public static final int SUBMARINE_SIZE = 3;
     public static final int PATROAL_BOAT_SIZE = 2;
     public static final int MAX_PLAYERS = 2;
+    public static final int DEFAULT_SERVER_PORT = 5050;
 }
