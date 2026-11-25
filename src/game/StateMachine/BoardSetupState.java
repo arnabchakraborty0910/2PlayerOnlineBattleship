@@ -23,12 +23,15 @@ public class BoardSetupState implements State {
         //ask each player where they would like to put each ship
         //evaulte if they can place it there
         //then move to the next ship
-        if(!stateMachine.player1.setUp)
+        if (!stateMachine.running) {
+            return;
+        }
+        if (!stateMachine.player1.setUp) {
             setPlayerShips(stateMachine.player1);
-        else if (!stateMachine.player2.setUp)
+        } else if (!stateMachine.player2.setUp) {
             setPlayerShips(stateMachine.player2);
-        else {
-            IO.print("done move to player 1 turn");
+        } else {
+            stateMachine.sendMessageToBothPlayers("Ships are placed. " + stateMachine.player1.name + " shoots first.");
             stateMachine.changeState(stateMachine.player1TurnState);
         }
 
@@ -40,121 +43,66 @@ public class BoardSetupState implements State {
     }
 
     private void setPlayerShips(Player p) {
-        if(p.Carrier == null) {
-            IO.println("Creating Carrier\n");
-            //cords for start and end
-            int rowS = Integer.parseInt(IO.readln("Type in a row for start: "));
-            int colS = Integer.parseInt((IO.readln("Type in a col for start: ")));
+        Player other = (p == stateMachine.player1) ? stateMachine.player2 : stateMachine.player1;
 
-            int rowE = Integer.parseInt(IO.readln("Type in a row for end: "));
-            int colE = Integer.parseInt((IO.readln("Type in a col for end: ")));
-            String orientation = IO.readln("Orientation(h/v): ");
-            Cord s = new Cord(rowS, colS);
-            Cord e = new Cord(rowE, colE);
-
-            //sets the potential ship
-            Ship ship = null;
-            if(orientation.equals("h"))
-                ship = new Ship(GameRules.CARRIER_SIZE, Ship.orientation.horizontal, "Carrier");
-            else
-                ship = new Ship(GameRules.CARRIER_SIZE, Ship.orientation.vertical, "Carrier");
-
-            //check with board to see if this ship can be placed at these cords
-            p.Carrier = setIndiviualShip(ship, s, e, p);
-
-        } else if(p.BattleShip == null) {
-            IO.println("Creating BattleShip\n");
-            //cords for start and end
-            int rowS = Integer.parseInt(IO.readln("Type in a row for start: "));
-            int colS = Integer.parseInt((IO.readln("Type in a col for start: ")));
-
-            int rowE = Integer.parseInt(IO.readln("Type in a row for end: "));
-            int colE = Integer.parseInt((IO.readln("Type in a col for end: ")));
-            String orientation = IO.readln("Orientation(h/v): ");
-            Cord s = new Cord(rowS, colS);
-            Cord e = new Cord(rowE, colE);
-
-            //sets the potential ship
-            Ship ship = null;
-            if(orientation.equals("h"))
-                ship = new Ship(GameRules.BATTLESHIP_SIZE, Ship.orientation.horizontal, "BattleShip");
-            else
-                ship = new Ship(GameRules.BATTLESHIP_SIZE, Ship.orientation.vertical, "BattleShip");
-
-            //check with board to see if this ship can be placed at these cords
-            p.BattleShip = setIndiviualShip(ship, s, e, p);
-
-        } else if(p.Destroyer == null) {
-            IO.println("Creating Destroyer\n");
-            //cords for start and end
-            int rowS = Integer.parseInt(IO.readln("Type in a row for start: "));
-            int colS = Integer.parseInt((IO.readln("Type in a col for start: ")));
-
-            int rowE = Integer.parseInt(IO.readln("Type in a row for end: "));
-            int colE = Integer.parseInt((IO.readln("Type in a col for end: ")));
-            String orientation = IO.readln("Orientation(h/v): ");
-            Cord s = new Cord(rowS, colS);
-            Cord e = new Cord(rowE, colE);
-
-            //sets the potential ship
-            Ship ship = null;
-            if(orientation.equals("h"))
-                ship = new Ship(GameRules.DESTROYER_SIZE, Ship.orientation.horizontal, "Destroyer");
-            else
-                ship = new Ship(GameRules.DESTROYER_SIZE, Ship.orientation.vertical, "Destroyer");
-
-            //check with board to see if this ship can be placed at these cords
-            p.Destroyer = setIndiviualShip(ship, s, e, p);
-
-        } else if(p.Submarine == null) {
-            IO.println("Creating Submarine\n");
-            //cords for start and end
-            int rowS = Integer.parseInt(IO.readln("Type in a row for start: "));
-            int colS = Integer.parseInt((IO.readln("Type in a col for start: ")));
-
-            int rowE = Integer.parseInt(IO.readln("Type in a row for end: "));
-            int colE = Integer.parseInt((IO.readln("Type in a col for end: ")));
-            String orientation = IO.readln("Orientation(h/v): ");
-            Cord s = new Cord(rowS, colS);
-            Cord e = new Cord(rowE, colE);
-
-            //sets the potential ship
-            Ship ship = null;
-            if(orientation.equals("h"))
-                ship = new Ship(GameRules.SUBMARINE_SIZE, Ship.orientation.horizontal, "Submarine");
-            else
-                ship = new Ship(GameRules.SUBMARINE_SIZE, Ship.orientation.vertical, "Submarine");
-
-            //check with board to see if this ship can be placed at these cords
-            p.Submarine = setIndiviualShip(ship, s, e, p);
-
-        } else if(p.PatrolBoat == null) {
-            IO.println("Creating PatrolBoat\n");
-            //cords for start and end
-            int rowS = Integer.parseInt(IO.readln("Type in a row for start: "));
-            int colS = Integer.parseInt((IO.readln("Type in a col for start: ")));
-
-            int rowE = Integer.parseInt(IO.readln("Type in a row for end: "));
-            int colE = Integer.parseInt((IO.readln("Type in a col for end: ")));
-            String orientation = IO.readln("Orientation(h/v): ");
-            Cord s = new Cord(rowS, colS);
-            Cord e = new Cord(rowE, colE);
-
-            //sets the potential ship
-            Ship ship = null;
-            if(orientation.equals("h"))
-                ship = new Ship(GameRules.PATROAL_BOAT_SIZE, Ship.orientation.horizontal, "Patrol Boat");
-            else
-                ship = new Ship(GameRules.PATROAL_BOAT_SIZE, Ship.orientation.vertical, "Patrol Boat");
-
-            //check with board to see if this ship can be placed at these cords
-            p.PatrolBoat = setIndiviualShip(ship, s, e, p);
-
+        if (p.Carrier == null) {
+            stateMachine.sendMessage(other, "Waiting for " + p.name + " to place ships.");
+            p.Carrier = placeShip(p, "Carrier", GameRules.CARRIER_SIZE);
+        } else if (p.BattleShip == null) {
+            p.BattleShip = placeShip(p, "BattleShip", GameRules.BATTLESHIP_SIZE);
+        } else if (p.Destroyer == null) {
+            p.Destroyer = placeShip(p, "Destroyer", GameRules.DESTROYER_SIZE);
+        } else if (p.Submarine == null) {
+            p.Submarine = placeShip(p, "Submarine", GameRules.SUBMARINE_SIZE);
+        } else if (p.PatrolBoat == null) {
+            p.PatrolBoat = placeShip(p, "Patrol Boat", GameRules.PATROAL_BOAT_SIZE);
         } else {
-            IO.println("Complete");
+            stateMachine.sendMessage(p, "All ships placed.");
             p.setUp = true;
-
         }
+    }
+
+    public Ship placeShip(Player player, String name, int size) {
+        stateMachine.sendMessage(player, "Creating " + name + " (size: " + size + "). Rows and columns are 0 to " + (GameRules.BOARD_SIZE - 1) + ".");
+        int rowS = askInt(player, "Type in a row for start: ");
+        int colS = askInt(player, "Type in a column for start: ");
+        int rowE = askInt(player, "Type in a row for end: ");
+        int colE = askInt(player, "Type in a column for end: ");
+
+        String orientation = stateMachine.getMessage(player, "Orientation(h/v): ");
+
+        if (orientation == null || rowS == -1 || colS == -1 || rowE == -1 || colE == -1) {
+            return null;
+        }
+
+        Ship ship;
+        if(orientation.equals("h")) {
+            ship = new Ship(size, Ship.orientation.horizontal, name);
+        } else {
+            ship = new Ship(size, Ship.orientation.vertical, name);
+        }
+
+        Ship placed = setIndiviualShip(ship, new Cord(rowS, colS), new Cord(rowE, colE), player);
+        if (placed != null) {
+            stateMachine.sendOwnBoard(player);
+        }
+        return placed;
+    }
+
+    private int askInt(Player player, String messgae) {
+        while(stateMachine.running) {
+            String line = stateMachine.getMessage(player, messgae);
+
+            if(line == null || !stateMachine.running) {
+                return -1;
+            }
+            try {
+                return Integer.parseInt(line.trim());
+            } catch (Exception e) {
+                stateMachine.sendMessage(player, "Type a whole number.");
+            }
+        }
+        return -1;
     }
 
     private Ship setIndiviualShip(Ship s, Cord start, Cord end, Player p) {
@@ -163,10 +111,10 @@ public class BoardSetupState implements State {
                 return s;
             }
         } catch(Exception e) {
-            IO.println("try another cordinate");
+            stateMachine.sendMessage(p, "try another cordinate");
             return null;
         }
-        IO.println("try another cordinate");
+        stateMachine.sendMessage(p, "try another cordinate");
         return null;
     }
 

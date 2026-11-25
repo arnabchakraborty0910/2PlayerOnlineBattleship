@@ -14,10 +14,10 @@ public class GameOverState implements State {
 
     @Override
     public void enter() {
-        IO.println("WINNER: " + winner.name);
-        IO.println("LOSSER: " + losser.name);
-
-        //stops the game
+        stateMachine.sendMessageToBothPlayers("WINNER: " + winner.name);
+        stateMachine.sendMessageToBothPlayers("LOSER: " + losser.name);
+        stateMachine.byeBoth();
+        //stop the game
         stateMachine.running = false;
     }
 
