@@ -69,7 +69,25 @@ public class Board {
 
     }
 
+    //removes the ship by checking if a spot equals that ship and setting it to null
+    public void removeShip(Ship ship) {
+        for (int row = 0; row < GameRules.BOARD_SIZE; row++) {
+            for (int col = 0; col < GameRules.BOARD_SIZE; col++) {
+                if (board[row][col] == ship) {
+                    board[row][col] = null;
+                }
+            }
+        }
+    }
 
+    //makes everything null
+    public void clearShips() {
+        for (int row = 0; row < GameRules.BOARD_SIZE; row++) {
+            for (int col = 0; col < GameRules.BOARD_SIZE; col++) {
+                board[row][col] = null;
+            }
+        }
+    }
 
     public Ship checkSpot(Cord c) {
         return board[c.row][c.col];

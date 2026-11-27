@@ -8,14 +8,18 @@ import game.Player.Player;
 // this will controll how the players will set up there ships at the start of each game
 public class BoardSetupState implements State {
     private StateMachine stateMachine;
+    private boolean leaving;
+
 
     public BoardSetupState(StateMachine s) {
         this.stateMachine = s;
     }
     @Override
     public void enter() {
-        //do nothing right now
-        //later will have networking code to see if theres 2 clients
+        leaving = false;
+        stateMachine.sendRawMessage(stateMachine.player1, "SETUP");
+        stateMachine.sendRawMessage(stateMachine.player2, "SETUP");
+        stateMachine.sendMessageToBothPlayers("Place your ships.");
     }
 
     @Override
@@ -23,23 +27,201 @@ public class BoardSetupState implements State {
         //ask each player where they would like to put each ship
         //evaulte if they can place it there
         //then move to the next ship
-        if (!stateMachine.running) {
+
+        //check if the statemachine is still running and its not leaving this state
+        if (!stateMachine.running || leaving) {
             return;
         }
-        if (!stateMachine.player1.setUp) {
-            setPlayerShips(stateMachine.player1);
-        } else if (!stateMachine.player2.setUp) {
-            setPlayerShips(stateMachine.player2);
-        } else {
-            stateMachine.sendMessageToBothPlayers("Ships are placed. " + stateMachine.player1.name + " shoots first.");
-            stateMachine.changeState(stateMachine.player1TurnState);
+
+        //check if either player has disconnected
+        if (stateMachine.lostConnection(stateMachine.player1)) {
+            disconnect(stateMachine.player1);
+            return;
+        }
+        if (stateMachine.lostConnection(stateMachine.player2)) {
+            disconnect(stateMachine.player2);
+            return;
         }
 
 
+        boolean got = false;
+        got |= drain(stateMachine.player1);
+        got |= drain(stateMachine.player2);
+        if (!got && stateMachine.running && !leaving) {
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override
     public void exit() {
+    }
+
+    //checks if the player has sent a line
+    private boolean drain(Player player) {
+        boolean got = false;
+        while (stateMachine.running && !leaving) {
+            String line = stateMachine.pollMessage(player);
+            if (line == null) {
+                break;
+            }
+            got = true;
+            apply(player, line);
+        }
+        return got;
+    }
+
+    private void apply(Player player, String message) {
+        String[] parts = message.split(" ");
+        if(parts.length == 0 || parts[0].isEmpty())
+            return;
+
+        if(player.setUp)//if already set up, then dont do anything
+            return;
+
+        if(parts[0].equals("PLACE")) {
+            place(player, parts);
+        } else if (parts[0].equals("REMOVE")) {
+            remove(player, parts);
+        } else if (parts[0].equals("CLEAR")) {
+            clear(player);
+        } else if (parts[0].equals("DONE")) {
+            done(player);
+        }
+    }
+
+    private void place(Player player, String[] parts) {
+        if (parts.length != 5) {
+            reject(player, "");
+            return;
+        }
+        String name = parts[1];
+        int size = GameRules.shipSize(name);
+        int row = parse(parts[2]);
+        int col = parse(parts[3]);
+
+        boolean horizontal = parts[4].equals("H");
+        //rejects player if not in right spot, getShip is null, and if its not horiznotal or vertiacl(server sends something wrong)
+        if (size < 0 || row < 0 || col < 0 || getShip(player, name) != null
+                || (!horizontal && !parts[4].equals("V"))) {
+            reject(player, name);
+            return;
+        }
+
+        Cord start = new Cord(row, col);
+        Cord end = horizontal
+                ? new Cord(row, col + size - 1)
+                : new Cord(row + size - 1, col);
+
+        Ship ship = new Ship(size, horizontal ? Ship.orientation.horizontal : Ship.orientation.vertical, name);
+
+        try {
+            if(!player.board.setShip(start, end, ship)) {
+                reject(player, name);
+                return;
+            }
+        } catch (Exception e) {
+            reject(player, name);
+            return;
+        }
+
+        setShip(player, name, ship);
+        stateMachine.sendRawMessage(player, "PLACED " + name + " " + row + " " + col + " " + parts[4]);
+        stateMachine.sendMessage(player, GameRules.shipLabel(name) + " placed.");
+
+    }
+
+    private void remove(Player player, String[] parts) {
+        if(parts.length != 2)
+            return;
+
+        String name = parts[1];
+        Ship ship = getShip(player, name);
+        if(ship != null) {
+            player.board.removeShip(ship);
+            setShip(player, name, null);
+        }
+
+        stateMachine.sendRawMessage(player, "REMOVED " + name);
+        stateMachine.sendMessage(player, GameRules.shipLabel(name) + " removed.");
+    }
+
+    private void clear(Player player) {
+        player.board.clearShips();
+        player.Carrier = null;
+        player.BattleShip = null;
+        player.Destroyer = null;
+        player.Submarine = null;
+        player.PatrolBoat = null;
+        player.setUp = false;
+        stateMachine.sendRawMessage(player, "CLEARED");
+        stateMachine.sendMessage(player, "Ships cleared.");
+    }
+
+    private void done(Player player) {
+        //if player is done setting up there ships
+        if (player.Carrier == null || player.BattleShip == null || player.Destroyer == null || player.Submarine == null || player.PatrolBoat == null) {
+            stateMachine.sendRawMessage(player, "DONE_REJECT");
+            stateMachine.sendMessage(player, "Place all 5 ships before pressing Ships Placed.");
+            return;
+        }
+        player.setUp = true;
+        Player other = (player == stateMachine.player1) ?  stateMachine.player2 : stateMachine.player1;
+        //if the other player isnt set up
+        if(!other.setUp) {
+            stateMachine.sendRawMessage(player, "WAITING");
+            stateMachine.sendMessage(player, "Waiting for " + other.name + " to finish placing ships.");
+            return;
+        }
+        finish();
+    }
+
+    private void finish() {
+        stateMachine.sendRawMessage(stateMachine.player1, "SETUP_DONE");
+        stateMachine.sendRawMessage(stateMachine.player2, "SETUP_DONE");
+        stateMachine.sendMessageToBothPlayers(
+                "Ships are placed. " + stateMachine.player1.name + " shoots first.");
+        leaving = true;
+        stateMachine.changeState(stateMachine.player1TurnState);
+    }
+
+    private void reject(Player player, String name) {
+        stateMachine.sendRawMessage(player, "REJECT " + name);
+        stateMachine.sendMessage(player, "This isn't a possible place to put this ship.");
+    }
+
+    private void disconnect(Player player) {
+        stateMachine.running = false;
+        stateMachine.sendMessageToBothPlayers(player.name + " disconnected. Game Over");
+        stateMachine.byeBoth();
+    }
+
+    private int parse(String text) {
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private Ship getShip(Player player, String name) {
+        if (name.equals("Carrier")) return player.Carrier;
+        if (name.equals("BattleShip")) return player.BattleShip;
+        if (name.equals("Destroyer")) return player.Destroyer;
+        if (name.equals("Submarine")) return player.Submarine;
+        if (name.equals("PatrolBoat")) return player.PatrolBoat;
+        return null;
+    }
+
+    private void setShip(Player player, String name, Ship ship) {
+        if (name.equals("Carrier")) player.Carrier = ship;
+        else if (name.equals("BattleShip")) player.BattleShip = ship;
+        else if (name.equals("Destroyer")) player.Destroyer = ship;
+        else if (name.equals("Submarine")) player.Submarine = ship;
+        else if (name.equals("PatrolBoat")) player.PatrolBoat = ship;
     }
 
     private void setPlayerShips(Player p) {

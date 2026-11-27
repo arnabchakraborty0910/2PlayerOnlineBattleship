@@ -1,6 +1,8 @@
 package game.GameComponents;
 
 import java.awt.*;
+import java.awt.event.MouseEvent;
+
 
 /*
  * defines the size of the board and the size of the ships, and number of players
@@ -33,5 +35,30 @@ public class GameRules {
     public static final double BUTTON_H_CELLS = 0.7;
     public static final double AFTER_BUTTON_CELLS = 0.45;
     public static final double AFTER_HEADER_CELLS = 0.2;
+
+    //GUI elements used in when players are setting up board
+    public static final Color SHIP_COLOR = Color.RED;
+    public static final Color BUTTON_COLOR = Color.RED;
+    public static final Color PLACED_BUTTON_COLOR = Color.GRAY;
+
+    public static final int MOUSE_BUTTON = MouseEvent.BUTTON1;//left click button
+
+    public static final double AFTER_BOARD_CELLS = 0.35;
+    public static final double SETUP_BUTTON_H_CELLS = 0.7;
+    public static final double SETUP_BUTTON_GAP_CELLS = 0.28;
+    public static final double SHIPS_PLACED_W_CELLS = 3.3;
+
+    public static int shipSize(String name) {
+        if ("Carrier".equals(name)) return CARRIER_SIZE;
+        if ("BattleShip".equals(name)) return BATTLESHIP_SIZE;
+        if ("Destroyer".equals(name)) return DESTROYER_SIZE;
+        if ("Submarine".equals(name)) return SUBMARINE_SIZE;
+        if ("PatrolBoat".equals(name)) return PATROAL_BOAT_SIZE;
+        return -1;
+    }
+    public static String shipLabel(String name) {
+        if ("PatrolBoat".equals(name)) return "Patrol Boat";
+        return name;
+    }
 
 }

@@ -107,4 +107,20 @@ public class ClientHandler implements Runnable {
             e.printStackTrace();
         }
     }
+
+    //send a specific message
+    public void sendRaw(String line) {
+        if (out != null) {
+            out.println(line);
+        } else {
+            connected = false;
+            IO.println(player.name + " isn't connected");
+        }
+    }
+
+    //returns the oldest line that THIS player has send
+    //basically checks if a message has already been sent
+    public String pollMessage() {
+        return inbox.poll();
+    }
 }

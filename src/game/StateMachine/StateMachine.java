@@ -4,6 +4,7 @@ import game.GameComponents.Cord;
 import game.GameComponents.Ship;
 import game.Player.Player;
 import net.ClientHandler;
+import ui.ClientWindow;
 
 public class StateMachine {
     //GameStateMachine
@@ -131,5 +132,25 @@ public class StateMachine {
             }
             sendMessage(player, rowText);
         }
+    }
+
+    public void sendRawMessage(Player player, String messgae) {
+        ClientHandler handler = handlerFor(player);
+        if (handler == null)
+            IO.print(messgae);
+        else
+            handler.sendRaw(messgae);
+    }
+
+    public String pollMessage(Player player) {
+        ClientHandler handler = handlerFor(player);
+        if (handler == null)
+            return null;
+        return handler.pollMessage();
+    }
+
+    public boolean lostConnection(Player player) {
+        ClientHandler handler = handlerFor(player);
+        return handler != null && !handler.connected;
     }
 }
