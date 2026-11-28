@@ -8,9 +8,11 @@ import game.Player.Player;
 // Player 1 is the only one allowed to fire.
 public class PlayerTurnState implements State {
     private StateMachine stateMachine;
-    private char[][] guesses;
+    private char[][] guesses;//check if this is needed
     private Player attacker;
     private Player defender;
+    private boolean leaving;
+
     public PlayerTurnState(Player attacker, Player defender, StateMachine stateMachine) {
         //sets the attacker and defenders
         this.attacker = attacker;
@@ -22,7 +24,9 @@ public class PlayerTurnState implements State {
     @Override
     public void enter() {
         //if guesses board has already been made, don't do anything
+        leaving = false;
         if (guesses != null) {
+            announceTurn();
             return;
         }
 
@@ -36,17 +40,7 @@ public class PlayerTurnState implements State {
             }
         }
 
-        /*
-         * key: guesses board
-         * O -> space hasnt been guessed yet
-         * X -> hit something
-         * _ -> nothing was there
-         *
-         * key: Own board
-         * _ -> empty space
-         * # -> a ship takes up that spot
-         * X -> ship has been hit
-         */
+        announceTurn();
     }
 
     @Override
@@ -60,74 +54,133 @@ public class PlayerTurnState implements State {
         if (!stateMachine.running) {
             return;
         }
+
+        //check if attacker and deffender are still connected
+        if (stateMachine.lostConnection(attacker)) {
+            disconnect(attacker);
+            return;
+        }
+        if (stateMachine.lostConnection(defender)) {
+            disconnect(defender);
+            return;
+        }
+
+        boolean got = false;
+        if (drain(attacker)) {
+            got = true;//this takes out any messages from the attacker and handles it. If there is a message return true
+        }
+        if (drain(defender)) {
+            got = true;//this takes out any messages from the defender and handles it. If there is a message return true
+        }
+        if (!got && stateMachine.running && !leaving) {
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public void exit() {
+
+    }
+
+    // Runs every time this player's turn starts,
+    private void announceTurn() {
+        sendOwnHits();
+        stateMachine.sendRawMessage(attacker, "TURN");
         stateMachine.sendMessage(attacker, "Your turn.");
+        stateMachine.sendRawMessage(defender, "WAIT");
+        stateMachine.sendMessage(defender, "It is " + attacker.name + "'s turn.");
+    }
 
-        //shows board to player
-        stateMachine.sendOwnBoard(attacker);
-        stateMachine.sendGuesses(attacker, guesses, defender.name);
-
-        //asks the player for a guess
-        Cord guess = new Cord(-1, -1);
-        while(true) {
-            try{
-                stateMachine.sendMessage(attacker, "Guess a point on the board");
-                guess.row = askInt(attacker, "What row would you like to guess: ");
-                guess.col = askInt(attacker,"What column would you like to guess: ");
-
-                if (guess.row == -1 || guess.col == -1) {
-                    return;
+    // Gives all the hits for the defender. Runs when this player starts his turn
+    private void sendOwnHits() {
+        Ship[][] board = attacker.board.board;
+        for (int row = 0; row < board.length; row++) {
+            for (int col = 0; col < board[row].length; col++) {
+                Ship ship = board[row][col];
+                if (ship != null && ship.isHit(new Cord(row, col))) {
+                    stateMachine.sendRawMessage(attacker, "OWN_HIT " + row + " " + col);
                 }
+            }
+        }
+    }
 
-                //check boundaries
-                if (guess.row < 0 || guess.row > GameRules.BOARD_SIZE - 1
-                        || guess.col < 0 || guess.col > GameRules.BOARD_SIZE - 1) {
-                    stateMachine.sendMessage(attacker, "That is not on the board. Try again");
-                    continue;
-                }
-
-                //check if they have already guessed that spot
-                if (guesses[guess.row][guess.col] != 'O') {
-                    stateMachine.sendMessage(attacker, "You already guessed that spot. Try again");
-                    continue;
-                }
-
+    private boolean drain(Player player) {
+        boolean got = false;
+        while (stateMachine.running && !leaving) {
+            String line = stateMachine.pollMessage(player);
+            if (line == null) {
                 break;
-
-            } catch (Exception e) {
-                IO.println("That is not whole number");
             }
+            got = true;
+            apply(player, line);
+        }
+        return got;
+    }
+
+    private void apply(Player player, String line) {
+        String[] parts = line.split(" ");
+        //checks for right command at start
+        if (parts.length == 0 || parts[0].isEmpty() || !parts[0].equals("FIRE")) {
+            return;
         }
 
-        //now check the guess
+        //checks if player is attacker
+        if (player != attacker) {
+            stateMachine.sendMessage(player, "It is not your turn.");
+            return;
+        }
+
+        //checks if the message is the right length
+        if (parts.length != 3) {
+            rejectShot("Click a cell on the Attacks board.");
+            return;
+        }
+
+        //checks if position is on the baord
+        int row = parse(parts[1]);
+        int col = parse(parts[2]);
+        if (row < 0 || row >= GameRules.BOARD_SIZE || col < 0 || col >= GameRules.BOARD_SIZE) {
+            rejectShot("That is not on the board. Try again.");
+            return;
+        }
+
+        //checks if spot has already been guessed
+        if (guesses[row][col] != 'O') {
+            rejectShot("You already guessed that spot. Try again.");
+            return;
+        }
+
+        //checks if there's a ship on that spot
+        Cord guess = new Cord(row, col);
         Ship potentialShip = defender.board.checkSpot(guess);
-        String results= "";
-        if(potentialShip == null) {
-            //no ship at that coordinate
-            guesses[guess.row][guess.col] = '_';
-            results = "\nMISS\n";
+        String results;
+        if (potentialShip == null) {
+            guesses[row][col] = '_';
+            stateMachine.sendRawMessage(attacker, "SHOT MISS " + row + " " + col);
+            results = "MISS";
         } else {
-            //hit a ship
-            guesses[guess.row][guess.col] = 'X';
+            guesses[row][col] = 'X';
             potentialShip.hit(guess);
-            results = "\nHIT\n";
-
-            //check if the ship has been sunk
-            if(potentialShip.sunk) {
-                //ship has been sunk
-                results = "\nSHIP SUNK: " + potentialShip.name + "\n";
+            stateMachine.sendRawMessage(attacker, "SHOT HIT " + row + " " + col);
+            results = "HIT";
+            if (potentialShip.sunk) {
+                results = "SHIP SUNK: " + potentialShip.name;
             }
         }
+        stateMachine.sendMessageToBothPlayers(attacker.name + " fired at row " + row + " col " + col + ": " + results);
 
-        stateMachine.sendMessageToBothPlayers(attacker.name + " fired at row " + guess.row + " col " + guess.col + ": " + results);
-
-        //check if player has won
-        if(defender.checkIfPlayerLost()) {
-            //attacker wins
+        //check if the defender has lost
+        if (defender.checkIfPlayerLost()) {
+            leaving = true;
             stateMachine.gameOverState.setWinner(attacker);
             stateMachine.changeState(stateMachine.gameOverState);
             return;
         }
-
+        leaving = true;
         if (attacker == stateMachine.player1) {
             stateMachine.changeState(stateMachine.player2TurnState);
         } else {
@@ -135,52 +188,26 @@ public class PlayerTurnState implements State {
         }
     }
 
-    @Override
-    public void exit() {
+    //handles rejected shots
+    private void rejectShot(String reason) {
+        stateMachine.sendRawMessage(attacker, "SHOT_REJECT");
+        stateMachine.sendMessage(attacker, reason);
     }
 
-    private void showGuesses() {
-        IO.println("Attacks on " + defender.name);
-        IO.println("Key: \nO -> space hasn't been guessed yet\nX -> hit something\n_ -> nothing was there");
-        for(int i = 0; i < guesses.length; i++) {
-            for(int j = 0; j < guesses[i].length; j++) {
-                IO.print(guesses[i][j] + " ");
-            }
-            IO.println("");
-        }
+    //handles player disconecting
+    private void disconnect(Player player) {
+        leaving = true;
+        Player winner = (player == stateMachine.player1) ? stateMachine.player2 : stateMachine.player1;
+        stateMachine.gameOverState.setWinner(winner);
+        stateMachine.changeState(stateMachine.gameOverState);
     }
 
-    private void showOwnBoard() {
-        IO.println(attacker.name + " board");
-        IO.println("Key: \n_ -> empty space\n# -> a ship takes up that spot\nX -> ship has been hit");
-        Ship[][] board = attacker.board.board;
-        for(int i = 0; i < board.length; i++) {
-            for(int j = 0; j < board[i].length; j++) {
-                if(board[i][j] == null) {
-                    IO.print("_ ");
-                } else if(board[i][j].isHit(new Cord(i, j))) {
-                    IO.print("X ");
-                } else {
-                    IO.print("# ");
-                }
-            }
-            IO.println("");
+    //converts texts to ints
+    private int parse(String text) {
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            return -1;
         }
-    }
-
-    private int askInt(Player player, String messgae) {
-        while(stateMachine.running) {
-            String line = stateMachine.getMessage(player, messgae);
-
-            if(line == null || !stateMachine.running) {
-                return -1;
-            }
-            try {
-                return Integer.parseInt(line.trim());
-            } catch (Exception e) {
-                stateMachine.sendMessage(player, "Type a whole number.");
-            }
-        }
-        return -1;
     }
 }

@@ -61,4 +61,7 @@ public class GameRules {
         return name;
     }
 
+    public static final Color HIT_COLOR = Color.BLACK;
+    public static final double LEGEND_H_CELLS = 1.5;
+
 }

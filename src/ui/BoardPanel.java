@@ -11,6 +11,10 @@ public class BoardPanel extends JPanel {
     private final String[][] occupants = new String[GameRules.BOARD_SIZE][GameRules.BOARD_SIZE];//the GUIs own board
     private String coverMessage;//this will display on attacker grid when setting up
 
+    //used for attacking
+    private final boolean[][] hits = new boolean[GameRules.BOARD_SIZE][GameRules.BOARD_SIZE];
+    private final boolean[][] misses = new boolean[GameRules.BOARD_SIZE][GameRules.BOARD_SIZE];
+
     public BoardPanel() {
         setOpaque(true);
         setBackground(GameRules.BACKGROUND_COLOR);
@@ -32,6 +36,18 @@ public class BoardPanel extends JPanel {
 
     public void setOccupant(int row, int col, String name) {
         occupants[row][col] = name;
+    }
+
+    //marks a hit
+    public void markHit(int row, int col) {
+        hits[row][col] = true;
+        repaint();
+    }
+
+    //marks a miss
+    public void markMiss(int row, int col) {
+        misses[row][col] = true;
+        repaint();
     }
 
     public void clearOccupants() {
@@ -188,8 +204,10 @@ public class BoardPanel extends JPanel {
             for (int col = 0; col < GameRules.BOARD_SIZE; col++) {
                 int x = m.originX + m.rowLabelW + col * m.cell;
                 int y = m.originY + m.colLabelH + row * m.cell;
-                //basically checks if there's a ship at this spot and makes the cell red if there is
-                if (occupants[row][col] != null) {
+                //basically checks if there's a ship at this spot and makes the cell red if its not hit and black if it is
+                if (hits[row][col]) {
+                    g2.setColor(GameRules.HIT_COLOR);
+                } else if (occupants[row][col] != null) {
                     g2.setColor(GameRules.SHIP_COLOR);
                 } else {
                     g2.setColor(GameRules.BACKGROUND_COLOR);
@@ -197,6 +215,14 @@ public class BoardPanel extends JPanel {
                 g2.fillRect(x, y, m.cell, m.cell);
                 g2.setColor(Color.BLACK);
                 g2.drawRect(x, y, m.cell - 1, m.cell - 1);
+                //adds ovals to where the attacker has missed
+                if (misses[row][col]) {
+                    int pad = Math.max(2, m.cell / 6);
+                    Stroke old = g2.getStroke();
+                    g2.setStroke(new BasicStroke(Math.max(2f, m.cell / 12f)));
+                    g2.drawOval(x + pad, y + pad, m.cell - pad * 2, m.cell - pad * 2);
+                    g2.setStroke(old);
+                }
             }
         }
 
